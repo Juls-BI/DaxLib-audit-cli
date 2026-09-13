@@ -1,7 +1,10 @@
+# daxlib-audit-cli
 ![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)
 ![Node](https://img.shields.io/badge/node-%3E%3D18-brightgreen)
-
-# daxlib-audit-cli
+![TypeScript](https://img.shields.io/badge/TypeScript-5.5-3178c6?logo=typescript&logoColor=white)
+![Version](https://img.shields.io/badge/version-0.1.0-orange)
+![daxlib](https://img.shields.io/badge/daxlib-package%20auditor-6f42c1)
+![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)
 
 A command-line auditor for a [daxlib](https://github.com/daxlib/daxlib) package folder — checks `manifest.daxlib` and `lib/functions.tmdl` for the conventions this package follows before you open a PR: fully-qualified `PackageId.FunctionName` naming, `TABLEREF` (not `TABLE`) parameter typing, complete `///` doc comments, and package annotations that match the manifest.
 
