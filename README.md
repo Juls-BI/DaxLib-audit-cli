@@ -51,12 +51,12 @@ node dist/index.js fixtures/valid-package
 node dist/index.js fixtures/broken-package
 ```
 
-`fixtures/valid-package` is a sample `Contoso.SixSigma` package and should report no issues. `fixtures/broken-package` is the same package with five deliberate mistakes seeded in (a `TABLE` parameter, a missing `@returns`, a missing `@param`, a mismatched package version, and an unqualified cross-reference call) so you can see what each check catches. Neither fixture is tied to any real namespace — the CLI validates whatever namespace your own `manifest.daxlib` declares.
+`fixtures/valid-package` is a sample `Contoso.SixSigma` package and should report no issues. `fixtures/broken-package` is the same package with five deliberate mistakes seeded in (a `TABLE` parameter, a missing `@returns`, a missing `@param`, a mismatched package version, and an unqualified cross-reference call) so you can see what each check catches. Neither fixture is tied to any real namespace - the CLI validates whatever namespace your own `manifest.daxlib` declares.
 
 ## Related
 
-- [`daxlib`](https://github.com/daxlib/daxlib) — the package registry this CLI audits packages for
-- `daxlib-udf-formatter` — a Claude skill that converts raw DAX UDFs into this same package format. [`skill/SKILL.md`](skill/SKILL.md) is a reference copy of its exact instructions (editing it here does not change the live skill); [`docs/daxlib-formatting-guide.md`](docs/daxlib-formatting-guide.md) covers the same rules written up as human-facing documentation
+- [`daxlib`](https://github.com/daxlib/daxlib) - the package registry this CLI audits packages for
+- `daxlib-udf-formatter` - a Claude skill that converts raw DAX UDFs into this same package format. [`skill/SKILL.md`](skill/SKILL.md) is a reference copy of its exact instructions (editing it here does not change the live skill); [`docs/daxlib-formatting-guide.md`](docs/daxlib-formatting-guide.md) covers the same rules written up as human-facing documentation
 
 ## License
 
