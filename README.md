@@ -6,19 +6,19 @@
 ![daxlib](https://img.shields.io/badge/daxlib-package%20auditor-6f42c1)
 ![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)
 
-A command-line auditor for a [daxlib](https://github.com/daxlib/daxlib) package folder — checks `manifest.daxlib` and `lib/functions.tmdl` for the conventions this package follows before you open a PR: fully-qualified `PackageId.FunctionName` naming, `TABLEREF` (not `TABLE`) parameter typing, complete `///` doc comments, and package annotations that match the manifest.
+A command-line auditor for a [daxlib](https://github.com/daxlib/daxlib) package folder - checks `manifest.daxlib` and `lib/functions.tmdl` for the conventions this package follows before you open a PR: fully-qualified `PackageId.FunctionName` naming, `TABLEREF` (not `TABLE`) parameter typing, complete `///` doc comments, and package annotations that match the manifest.
 
 Built to pair with the `daxlib-udf-formatter` Claude skill: format with the skill, audit with this CLI, then submit.
 
 ## What it checks
 
-- **structure** — `manifest.daxlib`, `README.md`, `icon.png` and `lib/functions.tmdl` are all present
-- **manifest** — valid JSON, every required field present, `id` is dot-separated PascalCase, `version` is semver, `readme`/`icon` paths and `repositoryUrl` match convention
-- **naming** — every function name is fully qualified and its namespace matches the manifest `id`
-- **types** — no `TABLE` parameters (should be `TABLEREF`)
-- **docs** — every function has a `///` doc block with an `@returns` tag and an `@param` tag for every parameter, and no `@param {table}` tags
-- **annotations** — every function has `DAXLIB_PackageId`/`DAXLIB_PackageVersion` annotations that match the manifest
-- **cross-reference** — a function calling a sibling function uses its fully-qualified quoted name, not the short name
+- **structure** - `manifest.daxlib`, `README.md`, `icon.png` and `lib/functions.tmdl` are all present
+- **manifest** - valid JSON, every required field present, `id` is dot-separated PascalCase, `version` is semver, `readme`/`icon` paths and `repositoryUrl` match convention
+- **naming** - every function name is fully qualified and its namespace matches the manifest `id`
+- **types** - no `TABLE` parameters (should be `TABLEREF`)
+- **docs** - every function has a `///` doc block with an `@returns` tag and an `@param` tag for every parameter, and no `@param {table}` tags
+- **annotations** - every function has `DAXLIB_PackageId`/`DAXLIB_PackageVersion` annotations that match the manifest
+- **cross-reference** - a function calling a sibling function uses its fully-qualified quoted name, not the short name
 
 ## Install
 
