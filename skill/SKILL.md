@@ -29,7 +29,7 @@ Quoting is ONLY correct on that declaration line. A CALL from one function to an
 - A table parameter is always typed `TABLEREF`, never `TABLE`. This applies to both the parameter declaration and the `@param {tableref}` doc tag.
 - A whole-number parameter is `INT64`, never `INTEGER` — `INTEGER` looks plausible but daxlib rejects it.
 - A column parameter is `COLUMNREF`.
-- A scalar parameter should use the most specific type when it's genuinely fixed for every caller: `DOUBLE`, `INT64`, `STRING`, `DATETIME`. Only fall back to the generic `SCALAR` when the real type varies by caller (e.g. an order/sequence column that could be a date, datetime, or integer) — and say so in the doc comment when that's why `SCALAR` was chosen. A scalar that's always a string specifically can also be written `SCALAR STRING`.
+- A scalar parameter should use the most specific type when it's genuinely fixed for every caller: DOUBLE, INT64, STRING, DATETIME. A decimal scalar can also be written DECIMAL (seen accepted in at least one merged package), but prefer DOUBLE unless there's a specific reason to use DECIMAL. Only fall back to the generic SCALAR when the real type varies by caller (e.g. an order/sequence column that could be a date, datetime, or integer), and say so in the doc comment when that's why SCALAR was chosen. A scalar that's always a string specifically can also be written SCALAR STRING.
 
 ## Reserved words
 
