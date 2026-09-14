@@ -1,6 +1,6 @@
 {
   "name": "daxlib-audit-cli",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Audits a daxlib package folder (manifest.daxlib + lib/functions.tmdl) before submission to https://github.com/daxlib/daxlib",
   "license": "MIT",
   "author": "Juls-BI",
