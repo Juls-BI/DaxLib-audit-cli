@@ -20,27 +20,32 @@ If the package already exists earlier in the conversation, reuse its known id/ve
 
 ## Function naming convention
 
-Every function name is fully qualified and quoted: `FUNCTION '<PackageId>.<FunctionName>' = (...)`, where `<PackageId>` is the full id gathered above (e.g. `Contoso.SixSigma`). Never leave a function unqualified — this is what daxlib requires and what distinguishes a real package function from a plain measure-style helper.
+Every function is DECLARED fully qualified and quoted: `FUNCTION '<PackageId>.<FunctionName>' = (...)`, where `<PackageId>` is the full id gathered above (e.g. `Contoso.SixSigma`). Never leave a function unqualified — this is what daxlib requires and what distinguishes a real package function from a plain measure-style helper.
 
-Any call from one function to another — inside the same package or a different one — must also use the fully qualified quoted name, e.g. `'Contoso.SixSigma.ProcessSigmaWithin'(Table, ValueColumn, OrderColumn)`. Never call a sibling function by its short name.
+Quoting is ONLY correct on that declaration line. A CALL from one function to another — inside the same package or a different one — must use the fully qualified name WITHOUT quotes, e.g. `Contoso.SixSigma.ProcessSigmaWithin(Table, ValueColumn, OrderColumn)`. Both of these get rejected in daxlib review: calling the bare short name (`ProcessSigmaWithin(...)`), and calling the qualified name still wrapped in quotes (`'Contoso.SixSigma.ProcessSigmaWithin'(...)`). This has been the single most common daxlib review comment on generated packages — double-check every cross-function call before handing back the file.
 
 ## Parameter types
 
 - A table parameter is always typed `TABLEREF`, never `TABLE`. This applies to both the parameter declaration and the `@param {tableref}` doc tag.
+- A whole-number parameter is `INT64`, never `INTEGER` — `INTEGER` looks plausible but daxlib rejects it.
 - A column parameter is `COLUMNREF`.
-- A scalar parameter should use the most specific type when it's genuinely fixed for every caller: `DOUBLE`, `INTEGER`, `STRING`, `DATETIME`. Only fall back to the generic `SCALAR` when the real type varies by caller (e.g. an order/sequence column that could be a date, datetime, or integer) — and say so in the doc comment when that's why `SCALAR` was chosen.
+- A scalar parameter should use the most specific type when it's genuinely fixed for every caller: `DOUBLE`, `INT64`, `STRING`, `DATETIME`. Only fall back to the generic `SCALAR` when the real type varies by caller (e.g. an order/sequence column that could be a date, datetime, or integer) — and say so in the doc comment when that's why `SCALAR` was chosen. A scalar that's always a string specifically can also be written `SCALAR STRING`.
+
+## Reserved words
+
+Neither a parameter name nor a `VAR` name may collide (case-insensitively) with a DAX/MDX reserved word — daxlib's compiler rejects it even though it reads like an ordinary identifier. Two real examples from review: a table parameter named `Table` (reserved — use `SourceTable` or similar instead) and a variable named `Avg` (reserved — use `Mean` or similar instead). Before finalizing a package, mentally check every parameter and `VAR` name against this risk, especially short, generic names like `Table`, `Row`, `Column`, `Value`, `Date`, `Type`, `Avg`, `Sum`, `Count`, `Min`, `Max`, `Rank`, `Order`, `Level`, `Measure` used bare (not as part of a longer compound name like `ValueColumn`, which is fine).
 
 ## Variable and parameter naming
 
-Drop any leading-underscore convention from draft/DAX-Query-View code (`_Table` → `Table`, `_Mean` → `Mean`, etc.) when converting into the library. Do this as a careful mechanical rename that preserves logic exactly — never change behavior while renaming.
+Drop any leading-underscore convention from draft/DAX-Query-View code (`_Table` → `SourceTable`, `_Mean` → `Mean`, etc.) when converting into the library — but never rename onto a reserved word (see above); pick a slightly more specific name instead (`_Table` → `SourceTable`, not `Table`). Do this as a careful mechanical rename that preserves logic exactly — never change behavior while renaming.
 
 ## Doc comments
 
 Every function gets a `///` comment block immediately above its `FUNCTION` line:
 
 ```
-/// One or two sentences of plain-English description. Reference any other function by its full qualified name in single quotes, e.g. 'Contoso.SixSigma.Cp', never by its short name.
-/// @param {type} ParamName – description of the parameter, lowercase type tag (double, integer, string, datetime, tableref, columnref, scalar)
+/// One or two sentences of plain-English description. Reference any other function by its full qualified name in single quotes, e.g. 'Contoso.SixSigma.Cp', never by its short name — this quoting is documentation prose only, not how the actual call in the code below should look (that's unquoted; see "Function naming convention" above).
+/// @param {type} ParamName – description of the parameter, lowercase type tag (double, int64, string, datetime, tableref, columnref, scalar)
 /// @returns What the function returns, including BLANK()/edge-case behavior. Example: '<PackageId>.<FunctionName>'(sample args) → sample result
 ```
 
@@ -125,3 +130,5 @@ Give the full `functions.tmdl` content as a single DAX code block, and the manif
 - Comment lines should generally not be manually wrapped — write each doc comment as a single continuous line, however long, unless the user asks otherwise.
 - If a function calls another function that doesn't yet exist in fully-qualified form in the pasted input, flag it rather than guessing its final name.
 - Never assume a namespace from a past package carries over to a new one — always confirm the full package id for whatever library is being formatted right now.
+- Before handing back the file, re-scan every `VAR ... =` inside every function body for a bare, unqualified, or quoted call to a sibling function (see "Function naming convention") — this is easy to miss when a package has many small helper functions calling each other.
+- Run the output through `daxlib-audit-cli` (or mentally re-check against `docs/daxlib-formatting-guide.md`) before calling a conversion finished — reserved words and internal-call quoting are the two mistakes that most often slip through.

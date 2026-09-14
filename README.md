@@ -6,7 +6,7 @@
 ![daxlib](https://img.shields.io/badge/daxlib-package%20auditor-6f42c1)
 ![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)
 
-A command-line auditor for a [daxlib](https://github.com/daxlib/daxlib) package folder - checks `manifest.daxlib` and `lib/functions.tmdl` for the conventions this package follows before you open a PR: fully-qualified `PackageId.FunctionName` naming, `TABLEREF` (not `TABLE`) parameter typing, complete `///` doc comments, and package annotations that match the manifest.
+A command-line auditor for a [daxlib](https://github.com/daxlib/daxlib) package folder - checks `manifest.daxlib` and `lib/functions.tmdl` for the conventions this package follows before you open a PR: fully-qualified `PackageId.FunctionName` naming, `TABLEREF`/`INT64` (not `TABLE`/`INTEGER`) parameter typing, no DAX-reserved-word parameter or variable names, unquoted fully-qualified calls between functions, complete `///` doc comments, and package annotations that match the manifest.
 
 Built to pair with the `daxlib-udf-formatter` Claude skill: format with the skill, audit with this CLI, then submit.
 
@@ -15,10 +15,11 @@ Built to pair with the `daxlib-udf-formatter` Claude skill: format with the skil
 - **structure** - `manifest.daxlib`, `README.md`, `icon.png` and `lib/functions.tmdl` are all present
 - **manifest** - valid JSON, every required field present, `id` is dot-separated PascalCase, `version` is semver, `readme`/`icon` paths and `repositoryUrl` match convention
 - **naming** - every function name is fully qualified and its namespace matches the manifest `id`
-- **types** - no `TABLE` parameters (should be `TABLEREF`)
-- **docs** - every function has a `///` doc block with an `@returns` tag and an `@param` tag for every parameter, and no `@param {table}` tags
+- **types** - no `TABLE` parameters (should be `TABLEREF`) and no `INTEGER` parameters (should be `INT64`)
+- **reserved-words** - no parameter or `VAR` name collides with a DAX/MDX reserved word (e.g. `Table`, `Avg`) — see `src/reservedWords.ts`
+- **docs** - every function has a `///` doc block with an `@returns` tag and an `@param` tag for every parameter, and no `@param {table}`/`@param {integer}` tags
 - **annotations** - every function has `DAXLIB_PackageId`/`DAXLIB_PackageVersion` annotations that match the manifest
-- **cross-reference** - a function calling a sibling function uses its fully-qualified quoted name, not the short name
+- **cross-reference** - a function calling a sibling function uses its fully-qualified name WITHOUT quotes — neither the bare short name nor a quoted qualified name
 
 ## Install
 
@@ -51,7 +52,7 @@ node dist/index.js fixtures/valid-package
 node dist/index.js fixtures/broken-package
 ```
 
-`fixtures/valid-package` is a sample `Contoso.SixSigma` package and should report no issues. `fixtures/broken-package` is the same package with five deliberate mistakes seeded in (a `TABLE` parameter, a missing `@returns`, a missing `@param`, a mismatched package version, and an unqualified cross-reference call) so you can see what each check catches. Neither fixture is tied to any real namespace - the CLI validates whatever namespace your own `manifest.daxlib` declares.
+`fixtures/valid-package` is a sample `Contoso.SixSigma` package and should report no issues. `fixtures/broken-package` is the same package with nine deliberate mistakes seeded in — a `TABLE` parameter, an `INTEGER` parameter, a missing `@returns`, a missing `@param`, a mismatched package version, an unqualified cross-reference call, a quoted cross-reference call, a reserved-word parameter name (`Table`), and a reserved-word `VAR` name (`Avg`) — so you can see what each check catches. Neither fixture is tied to any real namespace - the CLI validates whatever namespace your own `manifest.daxlib` declares.
 
 ## Related
 

@@ -1,12 +1,31 @@
 import * as fs from "fs";
 import * as path from "path";
 import { Finding, Manifest, ParsedFunction, ParsedParam } from "../types";
+import { DAX_RESERVED_WORDS } from "../reservedWords";
 
 const FUNCTION_HEADER = /^FUNCTION\s+'([^']+)'\s*=/;
 const ANNOTATION_LINE = /^\s*annotation\s+(\w+)\s*=\s*(.+?)\s*$/;
 const DOC_LINE = /^\s*\/\/\/(.*)$/;
 const PARAM_TAG = /@param\s+\{([^}]*)\}\s+(\w+)/g;
 const RETURNS_TAG = /@returns/;
+const VAR_DECL = /^\s*VAR\s+([A-Za-z_]\w*)\s*=/gm;
+
+// A reference to another function, quoted or bare: 'Some.Qualified.Name'( or Some.Qualified.Name(
+// (dots included in the bare alternative so a fully-qualified unquoted call, e.g.
+// DataTides.SixSigma.NormSInv(, is captured whole rather than matched from its last segment).
+const CALL_REF = /'([A-Za-z_][\w.]*)'\s*\(|(?<!['\w.])([A-Za-z_][\w.]*)\s*\(/g;
+
+// Known-invalid type hints and their correct replacement — both the actual DAX
+// parameter type and the lowercase doc-tag word daxlib docs use for it.
+// Confirmed by real daxlib PR review; not necessarily exhaustive.
+const INVALID_PARAM_TYPES: Record<string, string> = {
+    TABLE: "TABLEREF",
+    INTEGER: "INT64",
+};
+const INVALID_DOC_TAGS: Record<string, string> = {
+    table: "tableref",
+    integer: "int64",
+};
 
 function extractParamBlock(source: string, headerIndex: number): { block: string; afterIndex: number } {
     const openParenIndex = source.indexOf("(", headerIndex);
@@ -147,15 +166,48 @@ export function checkFunctions(packageDir: string, manifest: Manifest | null): F
             }
         }
 
-        // Table parameters must be TABLEREF, not TABLE.
+        // Known-invalid parameter type hints (e.g. TABLE should be TABLEREF, INTEGER should be INT64).
         for (const param of fn.params) {
-            if (param.type.toUpperCase() === "TABLE") {
+            const replacement = INVALID_PARAM_TYPES[param.type.toUpperCase()];
+            if (replacement) {
                 findings.push({
                     severity: "error",
                     check: "types",
-                    message: `Parameter "${param.name}" in "${fn.name}" is typed TABLE — daxlib expects TABLEREF`,
+                    message: `Parameter "${param.name}" in "${fn.name}" is typed ${param.type.toUpperCase()} — daxlib expects ${replacement}`,
                     location: loc,
                 });
+            }
+        }
+
+        // Parameter names can't collide with a DAX/MDX reserved word (e.g. "Table", "Avg") —
+        // daxlib's compiler rejects these even though they look like ordinary identifiers.
+        for (const param of fn.params) {
+            if (DAX_RESERVED_WORDS.has(param.name.toUpperCase())) {
+                findings.push({
+                    severity: "error",
+                    check: "reserved-words",
+                    message: `Parameter "${param.name}" in "${fn.name}" is a DAX reserved word and can't be used as a parameter name — rename it (e.g. "${param.name}" → "Source${param.name}" or similar)`,
+                    location: loc,
+                });
+            }
+        }
+
+        // Same for VAR names declared anywhere in the function body.
+        {
+            const varRegex = new RegExp(VAR_DECL);
+            let varMatch;
+            const seen = new Set<string>();
+            while ((varMatch = varRegex.exec(fn.body)) !== null) {
+                const varName = varMatch[1];
+                if (DAX_RESERVED_WORDS.has(varName.toUpperCase()) && !seen.has(varName)) {
+                    seen.add(varName);
+                    findings.push({
+                        severity: "error",
+                        check: "reserved-words",
+                        message: `VAR "${varName}" in "${fn.name}" is a DAX reserved word and can't be used as a variable name — rename it`,
+                        location: loc,
+                    });
+                }
             }
         }
 
@@ -195,16 +247,19 @@ export function checkFunctions(packageDir: string, manifest: Manifest | null): F
                 }
             }
 
-            // A table parameter's @param tag should be typed {tableref}, not {table}.
-            const tableTagRegex = /@param\s+\{table\}\s+(\w+)/gi;
-            let tableTagMatch;
-            while ((tableTagMatch = tableTagRegex.exec(docText)) !== null) {
-                findings.push({
-                    severity: "warning",
-                    check: "docs",
-                    message: `"${fn.name}" doc comment tags "${tableTagMatch[1]}" as {table} — should be {tableref}`,
-                    location: loc,
-                });
+            // A @param doc tag using one of the known-invalid type words (e.g. {table}, {integer})
+            // should use the corrected word instead, matching the actual parameter type.
+            for (const [badTag, goodTag] of Object.entries(INVALID_DOC_TAGS)) {
+                const tagRegex = new RegExp(`@param\\s+\\{${badTag}\\}\\s+(\\w+)`, "gi");
+                let tagMatch;
+                while ((tagMatch = tagRegex.exec(docText)) !== null) {
+                    findings.push({
+                        severity: "warning",
+                        check: "docs",
+                        message: `"${fn.name}" doc comment tags "${tagMatch[1]}" as {${badTag}} — should be {${goodTag}}`,
+                        location: loc,
+                    });
+                }
             }
         }
 
@@ -242,22 +297,41 @@ export function checkFunctions(packageDir: string, manifest: Manifest | null): F
             });
         }
 
-        // Cross-references to sibling functions must use the fully qualified quoted form.
-        let bodyForScan = fn.body;
-        for (const [, fullName] of shortNameToFullName) {
-            const qualifiedCallPattern = new RegExp(`'${fullName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}'\\s*\\(`, "g");
-            bodyForScan = bodyForScan.replace(qualifiedCallPattern, "");
-        }
-        for (const [shortName, fullName] of shortNameToFullName) {
-            if (fullName === fn.name) continue; // a function calling itself recursively isn't a cross-reference concern here
-            const bareCallPattern = new RegExp(`(?<!['\\w])${shortName}\\s*\\(`, "g");
-            if (bareCallPattern.test(bodyForScan)) {
-                findings.push({
-                    severity: "warning",
-                    check: "cross-reference",
-                    message: `"${fn.name}" appears to call "${shortName}" unqualified — use '${fullName}'(...) instead`,
-                    location: loc,
-                });
+        // Cross-references to sibling functions must use the fully qualified NAME
+        // WITHOUT quotes — e.g. DataTides.SixSigma.NormSInv( Yield ), not
+        // 'DataTides.SixSigma.NormSInv'( Yield ) and not the bare short name
+        // NormSInv( Yield ). Quoting is only correct on the FUNCTION declaration
+        // line itself; every call site (same package or cross-package) is bare.
+        {
+            const callRegex = new RegExp(CALL_REF);
+            let callMatch;
+            while ((callMatch = callRegex.exec(fn.body)) !== null) {
+                const quotedName = callMatch[1];
+                const bareName = callMatch[2];
+                const name = quotedName ?? bareName;
+                const quoted = quotedName !== undefined;
+
+                const shortName = name.includes(".") ? name.slice(name.lastIndexOf(".") + 1) : name;
+                const fullNameForShort = shortNameToFullName.get(shortName);
+                if (!fullNameForShort) continue; // not a call to a sibling function in this file
+                if (fullNameForShort === fn.name) continue; // recursive self-call, not a cross-reference concern here
+
+                if (quoted) {
+                    findings.push({
+                        severity: "error",
+                        check: "cross-reference",
+                        message: `"${fn.name}" calls '${name}'(...) with quotes — daxlib expects the fully qualified name WITHOUT quotes: ${fullNameForShort}(...)`,
+                        location: loc,
+                    });
+                } else if (name !== fullNameForShort) {
+                    findings.push({
+                        severity: "error",
+                        check: "cross-reference",
+                        message: `"${fn.name}" appears to call "${name}" unqualified — use ${fullNameForShort}(...) instead (no quotes)`,
+                        location: loc,
+                    });
+                }
+                // else: bare + fully qualified — the correct form, no finding.
             }
         }
     }
