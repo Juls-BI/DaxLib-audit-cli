@@ -57,7 +57,7 @@ node dist/index.js fixtures/broken-package
 ## Related
 
 - [`daxlib`](https://github.com/daxlib/daxlib) - the package registry this CLI audits packages for
-- `daxlib-udf-formatter` - a Claude skill that converts raw DAX UDFs into this same package format. [`skill/SKILL.md`](skill/SKILL.md) is a reference copy of its exact instructions (editing it here does not change the live skill); [`docs/daxlib-formatting-guide.md`](docs/daxlib-formatting-guide.md) covers the same rules written up as human-facing documentation
+[`docs/daxlib-formatting-guide.md`](docs/daxlib-formatting-guide.md) covers the same rules written up as human-facing documentation
 
 ## License
 
